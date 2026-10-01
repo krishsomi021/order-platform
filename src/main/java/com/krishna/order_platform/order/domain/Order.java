@@ -1,0 +1,67 @@
+package com.krishna.order_platform.order.domain;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "orders") // "order" is a reserved SQL word
+public class Order {
+
+    @Id
+    private UUID id;
+
+    @Column(nullable = false)
+    private UUID customerId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Column(nullable = false)
+    private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant updatedAt;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "order_id", nullable = false)
+    private List<OrderItem> items = new ArrayList<>();
+
+    protected Order() {} // required by JPA
+
+    public static Order create(UUID customerId, List<OrderItem> items) {
+        Order o = new Order();
+        o.id = UUID.randomUUID();
+        o.customerId = customerId;
+        o.status = OrderStatus.CREATED;
+        o.items.addAll(items);
+        o.totalAmount = items.stream()
+                .map(OrderItem::lineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        o.createdAt = Instant.now();
+        o.updatedAt = o.createdAt;
+        return o;
+    }
+
+    public void transitionTo(OrderStatus next) {
+        if (!status.canTransitionTo(next)) {
+            throw new IllegalStateException("Cannot move order from " + status + " to " + next);
+        }
+        this.status = next;
+        this.updatedAt = Instant.now();
+    }
+
+    public UUID getId() { return id; }
+    public UUID getCustomerId() { return customerId; }
+    public OrderStatus getStatus() { return status; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public Instant getCreatedAt() { return createdAt; }
+    public List<OrderItem> getItems() { return List.copyOf(items); }
+}
