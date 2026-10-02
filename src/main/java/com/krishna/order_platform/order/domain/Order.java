@@ -24,7 +24,7 @@ public class Order {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable=false)
     private Instant createdAt;
 
     @Column(nullable = false)
@@ -40,6 +40,8 @@ public class Order {
     protected Order() {} // required by JPA
 
     public static Order create(UUID customerId, List<OrderItem> items) {
+        if (customerId == null) throw new IllegalArgumentException("customerId is required");
+        if (items == null || items.isEmpty()) throw new IllegalArgumentException("Order must have at least one item");
         Order o = new Order();
         o.id = UUID.randomUUID();
         o.customerId = customerId;

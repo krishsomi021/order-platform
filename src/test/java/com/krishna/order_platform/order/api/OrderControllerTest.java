@@ -45,6 +45,15 @@ class OrderControllerTest {
     }
 
     @Test
+    void tooManyDecimalPlacesReturns400() throws Exception {
+        String body = """
+            {"customerId":"3f2b8c1e-6a52-4c0e-9d51-0c6f1c1a7a11",
+             "items":[{"sku":"SKU-1","quantity":1,"unitPrice":19.999}]}""";
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void emptyItemsReturns400() throws Exception {
         String body = "{\"customerId\":\"3f2b8c1e-6a52-4c0e-9d51-0c6f1c1a7a11\",\"items\":[]}";
         mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))

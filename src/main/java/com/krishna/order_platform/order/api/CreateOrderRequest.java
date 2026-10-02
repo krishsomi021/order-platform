@@ -8,10 +8,10 @@ import java.util.UUID;
 
 public record CreateOrderRequest(
         @NotNull UUID customerId,
-        @NotEmpty @Valid List<Item> items) {
+        @NotEmpty List<@Valid Item> items) {
 
     public record Item(
             @NotBlank String sku,
-            @Positive int quantity,
-            @NotNull @DecimalMin("0.01") BigDecimal unitPrice) {}
+            @Positive @Max(10_000) int quantity,
+            @NotNull @DecimalMin("0.01") @Digits(integer = 7, fraction = 2) BigDecimal unitPrice) {}
 }

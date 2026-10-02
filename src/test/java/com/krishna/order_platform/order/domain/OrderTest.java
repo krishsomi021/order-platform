@@ -20,6 +20,12 @@ class OrderTest {
     }
 
     @Test
+    void createWithNoItemsThrows() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Order.create(UUID.randomUUID(), List.of()));
+    }
+
+    @Test
     void validTransitionChangesStatus() {
         Order order = Order.create(UUID.randomUUID(), List.of(new OrderItem("A", 1, BigDecimal.ONE)));
         order.transitionTo(OrderStatus.PAYMENT_PENDING);
