@@ -30,6 +30,9 @@ public class Order {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    @Version
+    private Long version;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "order_id", nullable = false)
     private List<OrderItem> items = new ArrayList<>();
@@ -52,7 +55,7 @@ public class Order {
 
     public void transitionTo(OrderStatus next) {
         if (!status.canTransitionTo(next)) {
-            throw new IllegalStateException("Cannot move order from " + status + " to " + next);
+            throw new InvalidStateTransitionException("Cannot move order from " + status + " to " + next);
         }
         this.status = next;
         this.updatedAt = Instant.now();
