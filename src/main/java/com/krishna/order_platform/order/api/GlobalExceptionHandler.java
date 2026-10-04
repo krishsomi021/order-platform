@@ -1,5 +1,11 @@
 package com.krishna.order_platform.order.api;
 
+
+import org.springframework.dao.OptimisticLockingFailureException;   // new
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
 import com.krishna.order_platform.order.domain.InvalidStateTransitionException;
 import com.krishna.order_platform.order.service.OrderNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -19,5 +25,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidStateTransitionException.class)
     ProblemDetail handleInvalidTransition(InvalidStateTransitionException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail handleOptimisticLock(OptimisticLockingFailureException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "The order was modified by another request. Reload it and try again.");
+        problem.setTitle("Concurrent modification");
+        return problem;
     }
 }

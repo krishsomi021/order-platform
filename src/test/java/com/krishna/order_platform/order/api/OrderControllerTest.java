@@ -9,6 +9,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.krishna.order_platform.order.domain.Order;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -76,5 +78,16 @@ class OrderControllerTest {
 
         mockMvc.perform(get("/api/orders/" + id))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void concurrentModificationReturns409() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(orderService.get(id))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Order.class, id));
+
+        mockMvc.perform(get("/api/orders/" + id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
     }
 }

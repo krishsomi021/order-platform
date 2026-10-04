@@ -14,6 +14,10 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,6 +26,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.TransactionDefinition;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,10 +70,13 @@ class OrderRepositoryTest {
 
     @Test
     void flywayMigratesFreshDatabaseAndEntitiesValidateAgainstIt() {
+        Integer failed = jdbc.queryForObject(
+                "select count(*) from flyway_schema_history where not success", Integer.class);
         Integer applied = jdbc.queryForObject(
                 "select count(*) from flyway_schema_history where success", Integer.class);
 
-        assertThat(applied).isEqualTo(1);
+        assertThat(failed).isZero();
+        assertThat(applied).isGreaterThanOrEqualTo(1);
         assertThat(orderRepository.count()).isZero();
     }
 
@@ -180,6 +190,34 @@ class OrderRepositoryTest {
 
         assertThat(orderRepository.existsById(order.getId())).isFalse();
         assertThat(jdbc.queryForObject("select count(*) from order_items", Integer.class)).isZero();
+    }
+
+    @Test
+    void findByCustomerIdReturnsOnlyThatCustomersOrdersNewestFirstWithPaging() {
+        Instant base = Instant.parse("2026-01-01T00:00:00Z");
+        List<Order> mine = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            Order o = orderRepository.saveAndFlush(newOrder());
+            // pin createdAt so ordering is deterministic (no reliance on Instant.now() ties)
+            jdbc.update("update orders set created_at = ? where id = ?",
+                    Timestamp.from(base.plusSeconds(i)), o.getId());
+            mine.add(o);
+        }
+        orderRepository.saveAndFlush(Order.create(UUID.randomUUID(),
+                List.of(new OrderItem("OTHER", 1, new BigDecimal("1.00")))));
+        em.clear();
+
+        Sort newestFirst = Sort.by(Sort.Direction.DESC, "createdAt");
+
+        Page<Order> first = orderRepository.findByCustomerId(CUSTOMER, PageRequest.of(0, 2, newestFirst));
+        assertThat(first.getTotalElements()).isEqualTo(5);
+        assertThat(first.getTotalPages()).isEqualTo(3);
+        assertThat(first.getContent()).extracting(Order::getId)
+                .containsExactly(mine.get(4).getId(), mine.get(3).getId());
+
+        Page<Order> last = orderRepository.findByCustomerId(CUSTOMER, PageRequest.of(2, 2, newestFirst));
+        assertThat(last.getContent()).extracting(Order::getId)
+                .containsExactly(mine.get(0).getId());
     }
 
     // ---------- helpers ----------
