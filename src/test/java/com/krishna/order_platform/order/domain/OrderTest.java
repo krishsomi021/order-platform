@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,5 +39,19 @@ class OrderTest {
         Order order = Order.create(UUID.randomUUID(), List.of(new OrderItem("A", 1, BigDecimal.ONE)));
         assertThrows(InvalidStateTransitionException.class,
                 () -> order.transitionTo(OrderStatus.CONFIRMED));
+    }
+
+    @Test
+    void rejectsTotalAboveColumnLimit() {
+        var item = new OrderItem("SKU-1", 10_000, new BigDecimal("1000000.00"));
+        assertThatThrownBy(() -> Order.create(UUID.randomUUID(), List.of(item)))
+                .isInstanceOf(OrderLimitExceededException.class);
+    }
+
+    @Test
+    void acceptsTotalExactlyAtLimit() {
+        var item = new OrderItem("SKU-1", 1, Order.MAX_TOTAL);
+        Order order = Order.create(UUID.randomUUID(), List.of(item));
+        assertThat(order.getTotalAmount()).isEqualByComparingTo(Order.MAX_TOTAL);
     }
 }

@@ -39,6 +39,9 @@ public class Order {
 
     protected Order() {} // required by JPA
 
+    // Must equal the max of the total_amount column, NUMERIC(12,2).
+    public static final BigDecimal MAX_TOTAL = new BigDecimal("9999999999.99");
+
     public static Order create(UUID customerId, List<OrderItem> items) {
         if (customerId == null) throw new IllegalArgumentException("customerId is required");
         if (items == null || items.isEmpty()) throw new IllegalArgumentException("Order must have at least one item");
@@ -50,6 +53,11 @@ public class Order {
         o.totalAmount = items.stream()
                 .map(OrderItem::lineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (o.totalAmount.compareTo(MAX_TOTAL) > 0) {
+            throw new OrderLimitExceededException(
+                    "Order total " + o.totalAmount.toPlainString()
+                            + " exceeds the maximum of " + MAX_TOTAL.toPlainString());
+        }
         o.createdAt = Instant.now();
         o.updatedAt = o.createdAt;
         return o;
