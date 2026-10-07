@@ -17,6 +17,7 @@ spring:
         enable.idempotence: true
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
+        max.block.ms: 5000
     consumer:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
