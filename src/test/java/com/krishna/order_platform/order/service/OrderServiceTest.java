@@ -1,10 +1,13 @@
 package com.krishna.order_platform.order.service;
 
+import com.krishna.order_platform.config.KafkaTopicsConfig;
+import com.krishna.order_platform.events.OrderEvents;
 import com.krishna.order_platform.order.api.CreateOrderRequest;
 import com.krishna.order_platform.order.api.OrderResponse;
 import com.krishna.order_platform.order.domain.Order;
 import com.krishna.order_platform.order.domain.OrderStatus;
 import com.krishna.order_platform.order.repo.OrderRepository;
+import com.krishna.order_platform.outbox.OutboxWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +27,7 @@ import static org.mockito.Mockito.*;
 class OrderServiceTest {
 
     @Mock OrderRepository orderRepository;
+    @Mock OutboxWriter outboxWriter;
     @InjectMocks OrderService orderService;
 
     @Test
@@ -39,6 +43,22 @@ class OrderServiceTest {
         assertEquals(OrderStatus.CREATED, response.status());
         assertEquals(0, new BigDecimal("64.97").compareTo(response.totalAmount()));
         verify(orderRepository, times(1)).save(any(Order.class));
+    }
+
+    @Test
+    void createAppendsOrderCreatedEventToOutbox() {
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var request = new CreateOrderRequest(UUID.randomUUID(), List.of(
+                new CreateOrderRequest.Item("A", 2, new BigDecimal("10.00"))));
+
+        OrderResponse response = orderService.create(request);
+
+        verify(outboxWriter).append(
+                eq(OrderEvents.AGGREGATE_TYPE),
+                eq(KafkaTopicsConfig.ORDER_CREATED),
+                argThat(e -> e.orderId().equals(response.id())
+                        && e.eventType().equals("OrderCreated")));
     }
 
     @Test
