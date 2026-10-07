@@ -1,32 +1,29 @@
 package com.krishna.order_platform.order.domain;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.Map;
+import java.util.Set;
+
+import static com.krishna.order_platform.order.domain.OrderStatus.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderStatusTest {
 
-    @Test
-    void happyPathIsAllowed() {
-        assertTrue(OrderStatus.CREATED.canTransitionTo(OrderStatus.PAYMENT_PENDING));
-        assertTrue(OrderStatus.PAYMENT_PENDING.canTransitionTo(OrderStatus.PAID));
-        assertTrue(OrderStatus.PAID.canTransitionTo(OrderStatus.INVENTORY_PENDING));
-        assertTrue(OrderStatus.INVENTORY_PENDING.canTransitionTo(OrderStatus.CONFIRMED));
-    }
+    private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED = Map.of(
+            CREATED, Set.of(PAYMENT_PENDING, CANCELLED),
+            PAYMENT_PENDING, Set.of(CONFIRMED, CANCELLED),
+            CONFIRMED, Set.of(),
+            CANCELLED, Set.of());
 
     @Test
-    void cannotSkipSteps() {
-        assertFalse(OrderStatus.CREATED.canTransitionTo(OrderStatus.CONFIRMED));
-        assertFalse(OrderStatus.CREATED.canTransitionTo(OrderStatus.PAID));
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "CANCELLED"})
-    void terminalStatesAllowNoTransitions(OrderStatus terminal) {
-        for (OrderStatus next : OrderStatus.values()) {
-            assertFalse(terminal.canTransitionTo(next));
+    void transitionTableIsExactlyAsDesigned() {
+        for (OrderStatus from : OrderStatus.values()) {
+            for (OrderStatus to : OrderStatus.values()) {
+                assertThat(from.canTransitionTo(to))
+                        .as("%s -> %s", from, to)
+                        .isEqualTo(ALLOWED.get(from).contains(to));
+            }
         }
     }
 }

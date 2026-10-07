@@ -144,6 +144,15 @@ class OrderRepositoryTest {
     }
 
     @Test
+    void databaseRejectsRemovedStatusPaid() {
+        assertThatThrownBy(() -> jdbc.update(
+                "insert into orders (id, customer_id, status, total_amount, created_at, updated_at, version) "
+                        + "values (?, ?, 'PAID', 1.00, now(), now(), 0)", UUID.randomUUID(), CUSTOMER))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .rootCause().hasMessageContaining("ck_orders_status");
+    }
+
+    @Test
     void databaseRejectsAnItemWithoutAParentOrder() {
         assertThatThrownBy(() -> jdbc.update(
                 "insert into order_items (order_id, sku, quantity, unit_price) values (?, 'SKU-1', 1, 1.00)",
