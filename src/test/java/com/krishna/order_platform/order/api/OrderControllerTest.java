@@ -3,6 +3,7 @@ package com.krishna.order_platform.order.api;
 import com.krishna.order_platform.order.domain.OrderStatus;
 import com.krishna.order_platform.order.service.OrderNotFoundException;
 import com.krishna.order_platform.order.service.OrderService;
+import com.krishna.order_platform.order.domain.OrderLimitExceededException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -10,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.krishna.order_platform.order.domain.Order;
+import com.krishna.order_platform.order.domain.OrderLimitExceededException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
@@ -89,5 +91,16 @@ class OrderControllerTest {
         mockMvc.perform(get("/api/orders/" + id))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void orderLimitExceededReturns400() throws Exception {
+        when(orderService.create(any()))
+                .thenThrow(new OrderLimitExceededException("Order total exceeds the maximum allowed"));
+
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Order limit exceeded"))
+                .andExpect(jsonPath("$.status").value(400));
     }
 }
