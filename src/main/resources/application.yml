@@ -5,6 +5,25 @@ spring:
     password: orders
   jpa:
     hibernate:
-      ddl-auto: validate   # TEMPORARY, replaced by migrations in Phase 2
+      ddl-auto: validate   # Flyway owns the schema; Hibernate only checks it matches the entities
     open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
 
+outbox:
+  publisher:
+    enabled: true
+    poll-interval-ms: 500
+    batch-size: 50
