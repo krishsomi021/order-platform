@@ -63,12 +63,12 @@ public class Order {
         return o;
     }
 
-    public void transitionTo(OrderStatus next) {
+    public void transitionTo(OrderStatus next, Instant at) {
         if (!status.canTransitionTo(next)) {
             throw new InvalidStateTransitionException("Cannot move order from " + status + " to " + next);
         }
         this.status = next;
-        this.updatedAt = Instant.now();
+        this.updatedAt = at;
     }
 
     public UUID getId() { return id; }
@@ -76,5 +76,6 @@ public class Order {
     public OrderStatus getStatus() { return status; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
     public List<OrderItem> getItems() { return List.copyOf(items); }
 }

@@ -18,7 +18,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(TestcontainersConfiguration.class)
 class OrderRepositoryTest {
+    private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
 
     private static final UUID CUSTOMER = UUID.randomUUID();
 
@@ -100,6 +100,19 @@ class OrderRepositoryTest {
                 .containsExactlyInAnyOrder("SKU-1", "SKU-2");
     }
 
+    // Pins Order.MAX_TOTAL to the real column: if a migration ever changes the precision
+    // of total_amount, this fails instead of the constant silently drifting.
+    @Test
+    void persistsMaximumTotal() {
+        Order order = Order.create(CUSTOMER, List.of(new OrderItem("SKU-1", 1, Order.MAX_TOTAL)));
+
+        orderRepository.saveAndFlush(order);
+        em.clear();
+
+        Order loaded = orderRepository.findById(order.getId()).orElseThrow();
+        assertThat(loaded.getTotalAmount()).isEqualByComparingTo(Order.MAX_TOTAL);
+    }
+
     // ---------- constraints: the database says no ----------
     // These are CHECK constraints, which Hibernate cannot pre-check, so only Postgres can reject them.
 
@@ -146,7 +159,7 @@ class OrderRepositoryTest {
         Order order = orderRepository.saveAndFlush(newOrder());
         long before = versionOf(order.getId());
 
-        order.transitionTo(OrderStatus.PAYMENT_PENDING);
+        order.transitionTo(OrderStatus.PAYMENT_PENDING, NOW);
         orderRepository.flush();
 
         assertThat(versionOf(order.getId())).isEqualTo(before + 1);
@@ -163,10 +176,10 @@ class OrderRepositoryTest {
         Order first = tx.execute(s -> orderRepository.findById(id).orElseThrow());
         Order second = tx.execute(s -> orderRepository.findById(id).orElseThrow());
 
-        first.transitionTo(OrderStatus.PAYMENT_PENDING);
+        first.transitionTo(OrderStatus.PAYMENT_PENDING, NOW);
         tx.executeWithoutResult(s -> orderRepository.saveAndFlush(first)); // wins: version 0 -> 1
 
-        second.transitionTo(OrderStatus.CANCELLED); // based on the stale version 0
+        second.transitionTo(OrderStatus.CANCELLED, NOW); // based on the stale version 0
         assertThatThrownBy(() -> tx.executeWithoutResult(s -> orderRepository.saveAndFlush(second)))
                 .isInstanceOf(OptimisticLockingFailureException.class);
 
